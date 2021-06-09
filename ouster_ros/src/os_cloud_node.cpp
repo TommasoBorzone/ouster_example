@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh("~");
 
     auto tf_prefix = nh.param("tf_prefix", std::string{});
+    auto cloud_skip_factor = nh.param("cloud_skip_factor", 1);
     if (!tf_prefix.empty() && tf_prefix.back() != '/') tf_prefix.append("/");
     auto sensor_frame = tf_prefix + "os_sensor";
     auto imu_frame = tf_prefix + "os_imu";
@@ -66,9 +67,14 @@ int main(int argc, char** argv) {
                     return h.timestamp != std::chrono::nanoseconds{0};
                 });
             if (h != ls.headers.end()) {
-                scan_to_cloud(xyz_lut, h->timestamp, ls, cloud);
-                lidar_pub.publish(ouster_ros::cloud_to_cloud_msg(
-                    cloud, h->timestamp, sensor_frame));
+		static int process = 0;
+		process ++;
+		if (process == cloud_skip_factor) {
+                	scan_to_cloud(xyz_lut, h->timestamp, ls, cloud);
+                	lidar_pub.publish(ouster_ros::cloud_to_cloud_msg(
+                    		cloud, h->timestamp, sensor_frame));
+	                process = 0;
+                }
             }
         }
     };
